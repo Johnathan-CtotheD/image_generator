@@ -17,7 +17,9 @@ The prompts and the palette sit on the server, not in the page. That way every a
 3. Netlify will read `netlify.toml` and needs nothing else. Leave the build command empty.
 4. Before the first deploy finishes, go to Site configuration, then Environment variables, and add:
 
-   - `ANTHROPIC_API_KEY` — the key. This is the one thing that must never go in the repository.
+   - `ANTHROPIC_API_KEY` — the only key the site needs. It covers writing, drawing and illustrations.
+
+   The key must never go in the repository.
 
    Two optional ones, if you ever want to change model without touching code:
 
@@ -34,7 +36,8 @@ Check first that the licence covers serving the font from a public site. If it d
 
 ## What is not built yet
 
-- **Pictures.** The generator writes the brief for a photograph but cannot make one. That needs an account with an image provider and a third function. The decision about which provider has not been taken.
+- **Photographs.** The site makes flat illustrations, not photographs. Where a task needs a real photograph, copy the brief the generator writes into whatever photo tool you already use. This keeps the site to one supplier and one key.
+- **Checking pictures.** Every check runs on words, so nothing checks an illustration. Someone has to look at each one before it is used.
 - **Export.** Drawings can be downloaded as they are, but the words in them are still live text, so they change appearance on a machine without the font. `tools/outline_svg_text.py` fixes that; it needs turning into a function, and it is written in Python, so either it moves to Node or the site gets a small Python function alongside.
 - **Word lists.** They are loaded by hand in the browser each session. For a shared tool the frequency bands should be served with the site so everyone checks against the same lists, leaving only a house list as an upload.
 

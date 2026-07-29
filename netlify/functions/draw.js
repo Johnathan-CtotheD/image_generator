@@ -10,7 +10,31 @@ const FILLS = [
 // Ordered so that each colour differs from the next in shade as well as hue.
 const SERIES = ["#5900C1", "#22A1FF", "#0DD166", "#E2AFF9", "#F4EF4D"];
 
+function scenePrompt(brief) {
+  return [
+    "Draw a simple flat illustration of the scene described below. A language learner will look at it while doing a speaking task.",
+    "",
+    "Return the SVG and nothing else. No explanation, no code fences, no comments.",
+    "Use a viewBox of eight hundred by six hundred.",
+    "",
+    "This is a flat illustration, not a photograph and not a detailed drawing. Build it from plain shapes with flat fills: rectangles, circles, simple curves. No gradients, no shadows, no textures, no fine detail, no outlines except where a shape needs separating from its background.",
+    "",
+    "The colour palette is fixed and you must not use any colour outside it:",
+    FILLS.join(", ") + ".",
+    "Use a white or very light background. Give shapes a thin dark indigo #27004C outline where they would otherwise merge.",
+    "",
+    "No words anywhere in the picture. No signs, labels, captions, logos or brand names. If the scene would normally have writing on it, leave the surface blank.",
+    "",
+    "Keep it plain: one clear situation, only a few things in it, everything drawn large enough to recognise at a glance. Draw everyday objects in their most ordinary form, because the learner has to name what they see in simple language. Leave out anything specialist or unusual.",
+    "Where people appear, draw them simply and show a mix of people, without leaning on stereotypes about who does what.",
+    "",
+    "The scene to draw:",
+    brief
+  ].join("\n");
+}
+
 function drawPrompt(kindWord, content) {
+  if (/picture|illustration|scene/.test(kindWord)) return scenePrompt(content);
   const isChart = /chart|graph/.test(kindWord);
   const lines = [
     "Draw the asset below as a single SVG image. It is a " + kindWord + " that a language learner will look at while doing a speaking task.",

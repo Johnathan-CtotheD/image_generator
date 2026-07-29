@@ -202,15 +202,16 @@
             <option value="advert">Advert</option>
             <option value="menu">Menu</option>
             <option value="message thread">Message thread</option>
-            <option value="picture">Picture</option>
+            <option value="picture">Picture — a simple drawn scene</option>
           </select>
         </label>
         <label class="f hide" id="kindWrap">
           <span class="lab">Kind of asset</span>
-          <select id="kind">
+          <select id="kind" disabled>
             <option value="still">Still — the learner looks at it</option>
             <option value="moving">Audio — the learner listens to it</option>
           </select>
+          <span class="hint" id="kindWhy"></span>
         </label>
       </div>
       <div class="caution hide" id="caution"></div>
@@ -366,6 +367,12 @@
       : "One asset (usual for this level)";
     $("roleWrap").className = one ? "f" : "f hide";
     $("kindWrap").className = one ? "f" : "f hide";
+    if (one) {
+      $("kind").value = $("role").value === "content" ? "still" : "moving";
+      $("kindWhy").textContent = $("role").value === "content"
+        ? "Content is carried by a still asset."
+        : "Context is carried by audio.";
+    }
     var stillShown = !one || $("kind").value === "still";
     $("stillKindWrap").className = stillShown ? "f" : "f hide";
     var c = $("caution");
@@ -506,7 +513,9 @@
       }
       html += '<p class="sub">The asset itself</p>';
       if (LAST.stillKind === "picture") {
-        html += '<p class="drawnote">This one is a photograph, so the generator writes the brief above rather than the picture. Hand the brief to a photographer or an image tool.</p>';
+        html += '<p class="drawnote">The words above are the brief. Draw it below as a flat illustration, or copy the brief into a photo tool if the task needs a real photograph.</p>' +
+          '<button class="draw" id="drawBtn">Draw this scene</button>' +
+          '<div id="drawArea"></div>';
       } else {
         html += '<button class="draw" id="drawBtn">Draw this asset</button>' +
           '<div id="drawArea"></div>';
@@ -646,7 +655,7 @@
 
   $("level").addEventListener("change", refresh);
   $("mode").addEventListener("change", refresh);
-  $("kind").addEventListener("change", refresh);
+  $("role").addEventListener("change", refresh);
   $("go").addEventListener("click", generate);
   refresh();
 })();
