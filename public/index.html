@@ -126,6 +126,14 @@
   .ag .slot input[type=file] { font-family: var(--body); font-size: 11.5px; width: 100%; }
   .ag .slot .state { font-size: 12px; margin-top: 7px; color: var(--ink-soft); }
   .ag .slot .state.loaded { color: var(--pass); font-weight: 600; }
+  .ag textarea.edit {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+    background: var(--paper); border: 1px solid var(--spine); padding: 12px;
+    width: 100%; min-height: 150px; resize: vertical; margin-bottom: 6px; color: var(--ink);
+  }
+  .ag textarea.edit.short { min-height: 80px; }
+  .ag .editnote { font-size: 12px; color: var(--ink-soft); margin: 0 0 16px; }
+  .ag .editnote.changed { color: var(--wait); font-weight: 600; }
   .ag .advice { border-left: 4px solid var(--wait); background: #FBF6E9; padding: 14px 16px; margin-bottom: 20px; }
   .ag .advice h4 { font-family: var(--display); font-weight: 400; font-size: 19px; margin: 0 0 8px; }
   .ag .advice ul { margin: 0 0 12px; padding-left: 18px; font-size: 13.5px; }
@@ -262,7 +270,7 @@
   };
 
   var $ = function (id) { return document.getElementById(id); };
-  var LAST = { stillKind: "", content: "", level: "", svg: "" };
+  var LAST = { stillKind: "", content: "", level: "", svg: "", parsed: {}, mode: "", role: "", kind: "" };
 
   var BANDS = { k1: null, k2: null, k3: null, k4: null, k5: null, house: null };
   var BAND_DEPTH = { k1: 1, k2: 2, k3: 3, k4: 4, k5: 5 };
@@ -481,6 +489,64 @@
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
+  function checksHtml(checks) {
+    var html = '<ul class="ledger">';
+    checks.forEach(function (c) {
+      var word = c.state === "pass" ? "passed" : (c.state === "flag" ? "flagged" : "by hand");
+      html += '<li><span class="mark ' + c.state + '">' + word + '</span><span class="what"><div>' +
+        esc(c.name) + '</div><div class="detail">' + esc(c.detail) + "</div></span></li>";
+    });
+    html += "</ul>";
+    var advice = checks.filter(function (c) { return c.state === "flag" && c.advice; });
+    if (advice.length) {
+      html += '<div class="advice" style="margin-top:16px;margin-bottom:0"><h4>What you can do about it</h4><ul>';
+      advice.forEach(function (c) { html += "<li>" + esc(c.advice) + "</li>"; });
+      html += "</ul>" +
+        '<button class="go" id="again">Write it again</button> ' +
+        '<span class="hint" style="margin-left:10px">Or change the brief above and generate afresh.</span></div>';
+    }
+    return html;
+  }
+
+  function currentParsed() {
+    var p = {};
+    for (var k in LAST.parsed) { p[k] = LAST.parsed[k]; }
+    if ($("editStill")) p.STILL_ASSET_CONTENT = $("editStill").value;
+    if ($("editDesc"))  p.STILL_ASSET_DESCRIPTION = $("editDesc").value;
+    if ($("editScript")) p.SCRIPT = $("editScript").value;
+    return p;
+  }
+
+  function wireEdits() {
+    var mark = function (noteId) {
+      var n = $(noteId);
+      if (!n) return;
+      n.className = "editnote changed";
+      n.textContent = "Edited. Press Check again to see whether it still passes.";
+    };
+    if ($("editStill")) $("editStill").addEventListener("input", function () { mark("noteStill"); });
+    if ($("editScript")) $("editScript").addEventListener("input", function () { mark("noteScript"); });
+    if ($("editDesc")) $("editDesc").addEventListener("input", function () { mark("noteStill"); });
+
+    var rc = $("recheck");
+    if (rc) {
+      rc.addEventListener("click", function () {
+        var checks = runChecks(currentParsed(), LAST.level, LAST.mode, LAST.role, LAST.kind);
+        $("checksBox").innerHTML = checksHtml(checks);
+        if ($("again")) { $("again").addEventListener("click", generate); }
+        ["noteStill", "noteScript"].forEach(function (id) {
+          var n = $(id);
+          if (n && n.className.indexOf("changed") !== -1) {
+            n.className = "editnote";
+            n.textContent = id === "noteStill"
+              ? "Checked. The drawing uses whatever is in this box."
+              : "Checked.";
+          }
+        });
+      });
+    }
+  }
+
   function render(res, mode, role, kind) {
     var p = res.parsed, both = mode === "both";
     var showStill = both || kind === "still";
@@ -496,7 +562,9 @@
     if (showScript) {
       html += '<div class="channel"><h3>The audio</h3><div class="role">' +
         (both ? "first asset — carries the context" : roleLabel) + "</div>" +
-        '<p class="sub">Script</p><pre class="blockout">' + esc(p.SCRIPT || "nothing returned") + "</pre>";
+        '<p class="sub">Script — you can edit this</p>' +
+        '<textarea class="edit" id="editScript">' + esc(p.SCRIPT || "") + '</textarea>' +
+        '<p class="editnote" id="noteScript">Edits are checked when you press Check again.</p>';
       if (p.VOICE_NOTES) {
         html += '<p class="sub">Voice notes</p><pre class="blockout">' + esc(p.VOICE_NOTES) + "</pre>";
       }
@@ -505,11 +573,12 @@
     if (showStill) {
       html += '<div class="channel"><h3>The still asset</h3><div class="role">' +
         (both ? "second asset — carries the details" : roleLabel) + "</div>" +
-        '<p class="sub">What it says</p><pre class="blockout">' +
-        esc(p.STILL_ASSET_CONTENT || "nothing returned") + "</pre>";
+        '<p class="sub">What it says — you can edit this before drawing</p>' +
+        '<textarea class="edit" id="editStill">' + esc(p.STILL_ASSET_CONTENT || "") + '</textarea>' +
+        '<p class="editnote" id="noteStill">The drawing uses whatever is in this box.</p>';
       if (p.STILL_ASSET_DESCRIPTION) {
-        html += '<p class="sub">Description for learners who cannot see it</p><pre class="blockout">' +
-          esc(p.STILL_ASSET_DESCRIPTION) + "</pre>";
+        html += '<p class="sub">Description for learners who cannot see it — you can edit this</p>' +
+          '<textarea class="edit short" id="editDesc">' + esc(p.STILL_ASSET_DESCRIPTION) + '</textarea>';
       }
       html += '<p class="sub">The asset itself</p>';
       if (LAST.stillKind === "picture") {
@@ -524,22 +593,9 @@
     }
     html += "</div>";
 
-    html += '<div class="card" style="margin-top:20px"><div class="eyebrow">The checking step</div><ul class="ledger">';
-    res.checks.forEach(function (c) {
-      var word = c.state === "pass" ? "passed" : (c.state === "flag" ? "flagged" : "by hand");
-      html += '<li><span class="mark ' + c.state + '">' + word + '</span><span class="what"><div>' +
-        esc(c.name) + '</div><div class="detail">' + esc(c.detail) + "</div></span></li>";
-    });
-    html += "</ul></div>";
-
-    var advice = res.checks.filter(function (c) { return c.state === "flag" && c.advice; });
-    if (advice.length) {
-      html += '<div class="advice"><h4>What you can do about it</h4><ul>';
-      advice.forEach(function (c) { html += "<li>" + esc(c.advice) + "</li>"; });
-      html += "</ul>" +
-        '<button class="go" id="again">Write it again</button> ' +
-        '<span class="hint" style="margin-left:10px">Or change the brief above and generate afresh.</span></div>';
-    }
+    html += '<div class="card" style="margin-top:20px"><div class="eyebrow">The checking step</div>' +
+      '<div id="checksBox">' + checksHtml(res.checks) + '</div>' +
+      '<button class="draw" id="recheck" style="margin-top:14px;margin-bottom:0">Check again</button></div>';
 
     if (p.BOT_TALLY) {
       html += '<div class="card"><div class="eyebrow">What the bot said it wrote</div><pre class="blockout" style="margin:0">' +
@@ -559,7 +615,10 @@
         var res = await fetch("/api/draw", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: LAST.content, stillKind: LAST.stillKind })
+          body: JSON.stringify({
+            content: $("editStill") ? $("editStill").value : LAST.content,
+            stillKind: LAST.stillKind
+          })
         });
         var data = await res.json();
         var svg = data.svg || "";
@@ -642,8 +701,11 @@
                               .map(function (c) { return "- " + c.fix; }).join("\n");
       }
       LAST.content = (last.parsed.STILL_ASSET_CONTENT || "");
+      LAST.parsed = last.parsed;
+      LAST.mode = mode; LAST.role = role; LAST.kind = kind;
       render(last, mode, role, kind);
       wireDraw();
+      wireEdits();
       if ($("again")) { $("again").addEventListener("click", generate); }
     } catch (e) {
       err.className = "card error";
