@@ -212,6 +212,14 @@
             <option value="advert">Radio advertisement</option>
           </select>
         </label>
+        <label class="f" id="voiceCountWrap">
+          <span class="lab">Number of voices</span>
+          <select id="voiceCount">
+            <option value="">Let the generator choose</option>
+            <option value="one">One voice</option>
+            <option value="two">Two voices</option>
+          </select>
+        </label>
         <label class="f" id="stillKindWrap">
           <span class="lab">Kind of still asset</span>
           <select id="stillKind">
@@ -402,6 +410,7 @@
     $("stillKindWrap").className = stillShown ? "f" : "f hide";
     var audioShown = !one || $("kind").value === "moving";
     $("audioModeWrap").className = audioShown ? "f" : "f hide";
+    $("voiceCountWrap").className = audioShown ? "f" : "f hide";
     var photoWarn = $("photoWarn");
     if (photoWarn) {
       var isPhoto = /photograph|picture/.test($("stillKind").value);
@@ -759,6 +768,7 @@
           body: JSON.stringify({
             spec: spec, level: lvl, mode: mode, role: role, kind: kind,
             stillKind: stillKind, audioMode: $("audioMode").value,
+            voiceCount: $("voiceCount").value,
             listsLoaded: listsReadyFor(lvl),
             previousText: previousText, fixes: previousFixes
           })
