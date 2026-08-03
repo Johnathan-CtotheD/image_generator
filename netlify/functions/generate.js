@@ -127,16 +127,33 @@ const SEC_SCRIPT = [
 // it is writing, so that a brief mentioning a podcast produces a podcast and
 // not something adjacent to one.
 const AUDIO_MODES = {
-  "podcast": "A podcast episode. One or two hosts talking to their listeners about the topic. Warm and informal, with a short welcome at the start and a sign-off at the end. The hosts talk about the topic; they do not interview a guest.",
+  "podcast": "A podcast episode. Hosts talking to their listeners about the topic. Warm and informal, with a short welcome at the start and a sign-off at the end. The hosts talk about the topic; they do not interview a guest.",
   "radio news": "A short radio news item. A newsreader reporting the story plainly and neutrally. No opinions, no chat, no sign-off beyond a closing line.",
   "interview": "An interview. A presenter asking questions and one guest answering them. The guest supplies the substance; the presenter keeps it moving.",
   "conversation": "A conversation between two people who know each other, talking about the topic in an everyday setting. Natural and unscripted in feel, with no audience being addressed.",
   "announcement": "A spoken announcement, of the kind heard in a station, airport, school or shop. One voice, addressed to everyone present, brief and clear.",
   "voicemail": "A voicemail or phone message left for the learner or for someone in the situation. One voice, speaking to one person, with a reason for calling.",
-  "talk": "A short talk or presentation given to an audience. One speaker setting out the topic in an orderly way.",
+  "talk": "A short talk or presentation given to an audience. A speaker setting out the topic in an orderly way.",
   "vlog": "A video diary or vlog entry. One person talking to camera about the topic from their own point of view.",
-  "advert": "A radio advertisement for a service or event connected to the topic. One or two voices, persuasive but not misleading. The service or event must be invented, never a real company."
+  "advert": "A radio advertisement for a service or event connected to the topic. Persuasive but not misleading. The service or event must be invented, never a real company."
 };
+
+const VOICE_COUNTS = {
+  "one": "Write this for one voice only. A single speaker throughout, with nobody replying. Do not add a second person, a caller, a co-host or an interviewee.",
+  "two": "Write this for two voices. Two named speakers taking turns, each with a clear reason to be there. Do not add a third."
+};
+
+function voiceInstruction(count, mode) {
+  const line = VOICE_COUNTS[count];
+  if (!line) return null;
+  if (count === "one" && (mode === "interview" || mode === "conversation")) {
+    return "The author has asked for one voice, but a " + mode + " needs two people. Write it for two voices.";
+  }
+  if (count === "two" && (mode === "announcement" || mode === "voicemail" || mode === "vlog")) {
+    return "The author has asked for two voices, but a " + mode + " is normally one person speaking alone. Write it for one voice.";
+  }
+  return line;
+}
 
 function modeInstruction(mode) {
   const chosen = AUDIO_MODES[mode];
@@ -158,8 +175,11 @@ function buildPrompt(b) {
     "Word budget: " + L.budgetWords + " in total across everything the learner reads and hears."
   ];
   if (L.pace) fixed.push("Speaking speed for any audio: " + L.pace + ".");
-  const modeLine = (both || b.kind === "moving") ? modeInstruction(b.audioMode) : null;
+  const hasAudio = both || b.kind === "moving";
+  const modeLine = hasAudio ? modeInstruction(b.audioMode) : null;
   if (modeLine) fixed.push(modeLine);
+  const voiceLine = hasAudio ? voiceInstruction(b.voiceCount, b.audioMode) : null;
+  if (voiceLine) fixed.push(voiceLine);
   if (both) fixed.push("Suggested share of the budget: roughly sixty percent script, forty percent still asset.");
   fixed.push("Invent the names of any company, product, service, place or publication you mention. Never use a real one.");
   if (b.listsLoaded) fixed.push("The author has loaded the frequency band lists for this level, and every word you write will be checked against them automatically.");
