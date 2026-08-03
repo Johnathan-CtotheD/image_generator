@@ -29,7 +29,11 @@ const PARTITION = [
   "",
   "The headline and detail pairing: the strongest scripts describe in general terms what the still asset shows exactly. For example, the script says dinner in Spain is famously late, and the table shows the actual times. Use this pairing wherever it fits.",
   "",
-  "Pointing at the still asset: the script may tell the learner to look at the still asset, for example by saying have a look at the table. This is encouraged."
+  "Pointing at the still asset: the script may tell the learner to look at the still asset, for example by saying have a look at the table. This is encouraged.",
+  "",
+  "One thing the audio must never do: it must not act out the task the learner has been set. If the learner is asked to compare two things, the audio does not compare them. If the learner is asked to give an opinion and explain it, the audio does not give an opinion and explain it. The audio is the material the learner works from, not a model answer, and a script that performs the task hands the learner the words instead of making them find their own.",
+  "",
+  "The audio is also never about the task. Do not write commentary on the topic as a teaching point, do not address the learner as a learner, and do not mention the task, the assessment or the assets. Write the thing itself, as it would be heard in the world."
 ].join("\n");
 
 const SINGLE_CONTENT = [
@@ -113,6 +117,28 @@ const SEC_SCRIPT = [
   "===END BOT_TALLY==="
 ].join("\n");
 
+// The kinds of audio the non-static asset can be. Each one tells the bot what
+// it is writing, so that a brief mentioning a podcast produces a podcast and
+// not something adjacent to one.
+const AUDIO_MODES = {
+  "podcast": "A podcast episode. One or two hosts talking to their listeners about the topic. Warm and informal, with a short welcome at the start and a sign-off at the end. The hosts talk about the topic; they do not interview a guest.",
+  "radio news": "A short radio news item. A newsreader reporting the story plainly and neutrally. No opinions, no chat, no sign-off beyond a closing line.",
+  "interview": "An interview. A presenter asking questions and one guest answering them. The guest supplies the substance; the presenter keeps it moving.",
+  "conversation": "A conversation between two people who know each other, talking about the topic in an everyday setting. Natural and unscripted in feel, with no audience being addressed.",
+  "announcement": "A spoken announcement, of the kind heard in a station, airport, school or shop. One voice, addressed to everyone present, brief and clear.",
+  "voicemail": "A voicemail or phone message left for the learner or for someone in the situation. One voice, speaking to one person, with a reason for calling.",
+  "talk": "A short talk or presentation given to an audience. One speaker setting out the topic in an orderly way.",
+  "vlog": "A video diary or vlog entry. One person talking to camera about the topic from their own point of view.",
+  "advert": "A radio advertisement for a service or event connected to the topic. One or two voices, persuasive but not misleading. The service or event must be invented, never a real company."
+};
+
+function modeInstruction(mode) {
+  const chosen = AUDIO_MODES[mode];
+  if (!chosen) return null;
+  return "The kind of audio you are writing is fixed: " + mode + ". " + chosen +
+    " Write this kind and no other. If the task brief mentions this kind of audio as the source of the topic, that is the audio you are writing, not something that happens before or after it.";
+}
+
 function buildPrompt(b) {
   const L = LEVELS[b.level];
   if (!L) throw new Error("unknown level");
@@ -126,7 +152,10 @@ function buildPrompt(b) {
     "Word budget: " + L.budgetWords + " in total across everything the learner reads and hears."
   ];
   if (L.pace) fixed.push("Speaking speed for any audio: " + L.pace + ".");
+  const modeLine = (both || b.kind === "moving") ? modeInstruction(b.audioMode) : null;
+  if (modeLine) fixed.push(modeLine);
   if (both) fixed.push("Suggested share of the budget: roughly sixty percent script, forty percent still asset.");
+  fixed.push("Invent the names of any company, product, service, place or publication you mention. Never use a real one.");
   if (b.listsLoaded) fixed.push("The author has loaded the frequency band lists for this level, and every word you write will be checked against them automatically.");
   if (b.stillKind && (both || b.kind === "still")) {
     fixed.push("Kind of still asset the author has asked for: " + b.stillKind + ". Use this form.");
