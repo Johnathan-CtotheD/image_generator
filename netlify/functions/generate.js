@@ -31,7 +31,13 @@ const PARTITION = [
   "",
   "Pointing at the still asset: the script may tell the learner to look at the still asset, for example by saying have a look at the table. This is encouraged.",
   "",
-  "One thing the audio must never do: it must not act out the task the learner has been set. If the learner is asked to compare two things, the audio does not compare them. If the learner is asked to give an opinion and explain it, the audio does not give an opinion and explain it. The audio is the material the learner works from, not a model answer, and a script that performs the task hands the learner the words instead of making them find their own.",
+  "One thing the audio must never do: it must not act out the task the learner has been set. The audio is the material the learner works from, not a model answer. A script that performs the task hands the learner the words instead of making them find their own.",
+  "",
+  "This matters most in comparison tasks. Where the learner is asked to weigh one thing against another, each asset carries one side and one side only. The audio speaks about its side; the still asset shows the other.",
+  "",
+  "That does not stop the audio doing its usual job of setting the scene. There is a difference between naming the question and answering it. The audio may say that a choice is being talked about, so that the learner knows what is at issue, and then stay on its own side of it. What it must not do is describe the other side, quote its figures, weigh the two against each other, ask which is better, or sum up. If your script finds itself doing any of those, you have written the learner's answer for them: cut it back to the one side it carries, keeping only the sentence or two that frames the question.",
+  "",
+  "How to read the brief: it describes the task the learner will do, and it often names the assets themselves — a video diary, a magazine photograph, a notice on a wall. Those names tell you what to build. Work out which part of the brief describes each asset, build exactly those two things, and add nothing the brief does not call for. The brief is a specification, not a scene to be dramatised.",
   "",
   "The audio is also never about the task. Do not write commentary on the topic as a teaching point, do not address the learner as a learner, and do not mention the task, the assessment or the assets. Write the thing itself, as it would be heard in the world."
 ].join("\n");
@@ -159,6 +165,9 @@ function buildPrompt(b) {
   if (b.listsLoaded) fixed.push("The author has loaded the frequency band lists for this level, and every word you write will be checked against them automatically.");
   if (b.stillKind && (both || b.kind === "still")) {
     fixed.push("Kind of still asset the author has asked for: " + b.stillKind + ". Use this form.");
+    if (/photograph|picture/.test(b.stillKind)) {
+      fixed.push("Because the still asset is a photograph, it can only hold what a camera can capture. Write a brief for a single photograph and nothing else. It must not contain printed words, figures, tables, captions, data or statistics of any kind, and you must not describe it as a magazine spread, an article or a page with text beside it. The details the learner takes from it are visible things: what is there, how many, who is doing what, what the place is like.");
+    }
     if (/chart|graph/.test(b.stillKind)) {
       fixed.push("Because the still asset is a " + b.stillKind + ", set it out so it can be drawn: give a title, a label for each axis or slice, the unit, and then the figures as simple labelled rows, one row per bar, point or slice. Keep the number of figures small, between four and six, so the learner can talk about them. Choose figures that differ clearly from each other. Make sure the comparisons the learner will need to make can be made with the language of the level: at lower levels stay with plain rises and falls and simple comparisons.");
     }
