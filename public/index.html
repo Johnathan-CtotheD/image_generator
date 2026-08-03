@@ -238,6 +238,7 @@
           <span class="hint" id="kindWhy"></span>
         </label>
       </div>
+      <div class="caution hide" id="photoWarn"></div>
       <div class="caution hide" id="caution"></div>
       <button class="go" id="go">Generate assets</button>
     </div>
@@ -286,7 +287,7 @@
   };
 
   var $ = function (id) { return document.getElementById(id); };
-  var LAST = { stillKind: "", content: "", level: "", svg: "", parsed: {}, mode: "", role: "", kind: "" };
+  var LAST = { stillKind: "", content: "", level: "", svg: "", parsed: {}, mode: "", role: "", kind: "", picTries: 0 };
 
   var BANDS = { k1: null, k2: null, k3: null, k4: null, k5: null, house: null };
   var BAND_DEPTH = { k1: 1, k2: 2, k3: 3, k4: 4, k5: 5 };
@@ -401,6 +402,17 @@
     $("stillKindWrap").className = stillShown ? "f" : "f hide";
     var audioShown = !one || $("kind").value === "moving";
     $("audioModeWrap").className = audioShown ? "f" : "f hide";
+    var photoWarn = $("photoWarn");
+    if (photoWarn) {
+      var isPhoto = /photograph|picture/.test($("stillKind").value);
+      if (isPhoto && !one) {
+        photoWarn.className = "caution";
+        photoWarn.innerHTML = "<strong>A photograph cannot carry printed details.</strong>" +
+          "In a two-asset task the still asset holds the specific information the learner uses — times, prices, quantities, conditions. A photograph can only show what a camera sees. Use it where the details are visible things to count or describe; choose a table, chart or notice where the learner needs figures.";
+      } else {
+        photoWarn.className = "caution hide";
+      }
+    }
     var c = $("caution");
     if (one && L.assets === "both") {
       c.className = "caution";
@@ -629,8 +641,10 @@
   function wirePicture() {
     var btn = $("picBtn");
     if (!btn) return;
+    var LIMIT = 3;
     btn.addEventListener("click", async function () {
       var area = $("picArea");
+      if (LAST.picTries >= LIMIT) return;
       btn.disabled = true;
       btn.textContent = "Making the photograph…";
       try {
@@ -647,14 +661,24 @@
           area.innerHTML = '<p class="drawnote">' + esc(data.error) + '</p>';
           btn.textContent = "Try again";
         } else {
+          LAST.picTries++;
           area.innerHTML = '<div class="canvas"><img src="' + data.dataUrl + '" alt="" style="max-width:100%;display:block"></div>';
-          btn.textContent = "Make it again";
+          var left = LIMIT - LAST.picTries;
+          if (left > 0) {
+            area.innerHTML += '<p class="drawnote">Photograph ' + LAST.picTries + ' of ' + LIMIT +
+              '. You can make ' + left + ' more from this brief.</p>';
+            btn.textContent = "Make it again";
+          } else {
+            area.innerHTML += '<p class="drawnote">Photograph ' + LIMIT + ' of ' + LIMIT +
+              '. That is the limit for one brief. If none of them is right, edit the brief above and generate the task again, or take the brief to another tool.</p>';
+            btn.textContent = "No more from this brief";
+          }
         }
       } catch (e) {
         area.innerHTML = '<p class="drawnote">Could not reach the picture service. Try again.</p>';
         btn.textContent = "Try again";
       }
-      btn.disabled = false;
+      btn.disabled = LAST.picTries >= LIMIT;
     });
   }
 
@@ -720,6 +744,7 @@
     var lvl = $("level").value, mode = effectiveMode(), role = $("role").value, kind = $("kind").value;
     var stillKind = $("stillKind").value;
     LAST.stillKind = stillKind;
+    LAST.picTries = 0;
     LAST.level = lvl;
     LAST.svg = "";
     var last = null;
@@ -774,6 +799,7 @@
   $("level").addEventListener("change", refresh);
   $("mode").addEventListener("change", refresh);
   $("role").addEventListener("change", refresh);
+  $("stillKind").addEventListener("change", refresh);
   $("go").addEventListener("click", generate);
   refresh();
 })();
