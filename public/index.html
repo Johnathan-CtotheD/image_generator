@@ -197,6 +197,21 @@
             <option value="context">Context — it sets the scene</option>
           </select>
         </label>
+        <label class="f" id="audioModeWrap">
+          <span class="lab">Kind of audio</span>
+          <select id="audioMode">
+            <option value="">Let the generator choose</option>
+            <option value="podcast">Podcast</option>
+            <option value="radio news">Radio news item</option>
+            <option value="interview">Interview</option>
+            <option value="conversation">Conversation between two people</option>
+            <option value="announcement">Announcement</option>
+            <option value="voicemail">Voicemail or phone message</option>
+            <option value="talk">Talk or presentation</option>
+            <option value="vlog">Video diary</option>
+            <option value="advert">Radio advertisement</option>
+          </select>
+        </label>
         <label class="f" id="stillKindWrap">
           <span class="lab">Kind of still asset</span>
           <select id="stillKind">
@@ -211,6 +226,7 @@
             <option value="menu">Menu</option>
             <option value="message thread">Message thread</option>
             <option value="picture">Picture — a simple drawn scene</option>
+            <option value="photograph">Photograph — a real-looking photo</option>
           </select>
         </label>
         <label class="f hide" id="kindWrap">
@@ -383,6 +399,8 @@
     }
     var stillShown = !one || $("kind").value === "still";
     $("stillKindWrap").className = stillShown ? "f" : "f hide";
+    var audioShown = !one || $("kind").value === "moving";
+    $("audioModeWrap").className = audioShown ? "f" : "f hide";
     var c = $("caution");
     if (one && L.assets === "both") {
       c.className = "caution";
@@ -581,7 +599,11 @@
           '<textarea class="edit short" id="editDesc">' + esc(p.STILL_ASSET_DESCRIPTION) + '</textarea>';
       }
       html += '<p class="sub">The asset itself</p>';
-      if (LAST.stillKind === "picture") {
+      if (LAST.stillKind === "photograph") {
+        html += '<p class="drawnote">The words above are the brief. The photograph is made from it by a separate service, so it will not match the brief exactly — always look at it before you use it.</p>' +
+          '<button class="draw" id="picBtn">Make this photograph</button>' +
+          '<div id="picArea"></div>';
+      } else if (LAST.stillKind === "picture") {
         html += '<p class="drawnote">The words above are the brief. Draw it below as a flat illustration, or copy the brief into a photo tool if the task needs a real photograph.</p>' +
           '<button class="draw" id="drawBtn">Draw this scene</button>' +
           '<div id="drawArea"></div>';
@@ -602,6 +624,38 @@
         esc(p.BOT_TALLY) + "</pre></div>";
     }
     $("out").innerHTML = html;
+  }
+
+  function wirePicture() {
+    var btn = $("picBtn");
+    if (!btn) return;
+    btn.addEventListener("click", async function () {
+      var area = $("picArea");
+      btn.disabled = true;
+      btn.textContent = "Making the photograph…";
+      try {
+        var res = await fetch("/api/picture", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            brief: $("editStill") ? $("editStill").value : LAST.content,
+            shape: "square"
+          })
+        });
+        var data = await res.json();
+        if (data.error) {
+          area.innerHTML = '<p class="drawnote">' + esc(data.error) + '</p>';
+          btn.textContent = "Try again";
+        } else {
+          area.innerHTML = '<div class="canvas"><img src="' + data.dataUrl + '" alt="" style="max-width:100%;display:block"></div>';
+          btn.textContent = "Make it again";
+        }
+      } catch (e) {
+        area.innerHTML = '<p class="drawnote">Could not reach the picture service. Try again.</p>';
+        btn.textContent = "Try again";
+      }
+      btn.disabled = false;
+    });
   }
 
   function wireDraw() {
@@ -679,7 +733,8 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             spec: spec, level: lvl, mode: mode, role: role, kind: kind,
-            stillKind: stillKind, listsLoaded: listsReadyFor(lvl),
+            stillKind: stillKind, audioMode: $("audioMode").value,
+            listsLoaded: listsReadyFor(lvl),
             previousText: previousText, fixes: previousFixes
           })
         });
@@ -705,6 +760,7 @@
       LAST.mode = mode; LAST.role = role; LAST.kind = kind;
       render(last, mode, role, kind);
       wireDraw();
+      wirePicture();
       wireEdits();
       if ($("again")) { $("again").addEventListener("click", generate); }
     } catch (e) {
