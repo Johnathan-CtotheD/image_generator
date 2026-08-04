@@ -29,7 +29,11 @@ const PARTITION = [
   "",
   "The headline and detail pairing: the strongest scripts describe in general terms what the still asset shows exactly. For example, the script says dinner in Spain is famously late, and the table shows the actual times. Use this pairing wherever it fits.",
   "",
-  "Pointing at the still asset: the script may tell the learner to look at the still asset, for example by saying have a look at the table. This is encouraged.",
+  "Referring to the other asset: let the medium decide. Some kinds of audio really do send their audience elsewhere, and where that is true it is worth keeping, because it is what the real thing sounds like. A podcast points to its show notes, a vlogger mentions a link, someone leaving a message says they have sent it over. Others never do: a news bulletin does not tell you to read a newspaper, an announcement does not direct you to a leaflet, a talk does not hand out a table. If the reference would not occur in the real version of this medium, leave it out.",
+  "",
+  "Whether or not the audio refers to the other asset, it never speaks in the voice of the task. Nothing like have a look for all the specific details, you will need this, or everything you need is in the article. A real speaker refers to something because they have a reason of their own, not because a learner has to consult it. If you cannot make the reference sound like something that speaker would actually say, drop it: the shared name is enough to tie the two assets together, since a listener who hears about the Millbrook flood recognises it when they read about it.",
+  "",
+  "End the audio the way that kind of audio really ends.",
   "",
   "One thing the audio must never do: it must not act out the task the learner has been set. The audio is the material the learner works from, not a model answer. A script that performs the task hands the learner the words instead of making them find their own.",
   "",
@@ -39,7 +43,24 @@ const PARTITION = [
   "",
   "How to read the brief: it describes the task the learner will do, and it often names the assets themselves — a video diary, a magazine photograph, a notice on a wall. Those names tell you what to build. Work out which part of the brief describes each asset, build exactly those two things, and add nothing the brief does not call for. The brief is a specification, not a scene to be dramatised.",
   "",
-  "The audio is also never about the task. Do not write commentary on the topic as a teaching point, do not address the learner as a learner, and do not mention the task, the assessment or the assets. Write the thing itself, as it would be heard in the world."
+  "The audio is also never about the task. Do not write commentary on the topic as a teaching point, do not address the learner as a learner, do not tell them what to do next, and do not mention the task, the assessment or the assets. Write the thing itself, as it would be heard in the world."
+].join("\n");
+
+const SAME_STORY = [
+  "You are producing the input material for one learner speaking task. This task has two assets, and unusually they cover the same story. The learner is being asked to compare the two media themselves — what each one carries, what each one leaves out, and how far each can be trusted — so the overlap between them is the whole point of the task, not a fault.",
+  "",
+  "The first asset is the audio. It gives the story quickly: the headline facts, what happened, where and to whom, in the plain summary form that this kind of audio really uses. It is a way in, so it stays short and leaves things out.",
+  "",
+  "The second asset is the still one. It covers the same story at greater length: the same events, with the detail the audio had no room for. Specific figures, named people, quotes, background, consequences, what happens next.",
+  "",
+  "How to make them genuinely comparable:",
+  "Both must be about the same story, with the same names, the same place and the same events. Nothing in one may contradict the other.",
+  "The difference between them must be a difference of depth and treatment, not of subject. The learner should be able to point at something the article has and the report does not.",
+  "Leave the audio with real gaps: things stated in general terms that the article makes exact, and at least one thing the audio does not mention at all.",
+  "Write each in the voice its medium really uses. A short broadcast report is compressed and impersonal. An article has room to attribute, quote and explain.",
+  "Give the learner something to weigh when judging how far each can be trusted: the article can name its sources and say who said what, while the audio has less room to. Do not make either one false, and do not plant errors.",
+  "",
+  "Neither asset does the comparing. Neither remarks on the difference between broadcast and print, neither says which is more reliable, and neither refers to the other. That judgement is the learner's task."
 ].join("\n");
 
 const SINGLE_CONTENT = [
@@ -178,7 +199,10 @@ function buildPrompt(b) {
   const L = LEVELS[b.level];
   if (!L) throw new Error("unknown level");
   const both = b.mode === "both";
-  const rule = both ? PARTITION : (b.role === "content" ? SINGLE_CONTENT : SINGLE_CONTEXT);
+  const sameStory = both && b.relation === "same story";
+  const rule = both
+    ? (sameStory ? SAME_STORY : PARTITION)
+    : (b.role === "content" ? SINGLE_CONTENT : SINGLE_CONTEXT);
   const sections = both ? SEC_BOTH : (b.kind === "still" ? SEC_STILL : SEC_SCRIPT);
 
   const fixed = [
