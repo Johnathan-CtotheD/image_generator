@@ -220,10 +220,30 @@
             <option value="two">Two voices</option>
           </select>
         </label>
+        <label class="f" id="balanceWrap">
+          <span class="lab">Which asset carries more</span>
+          <select id="balance">
+            <option value="">Let the brief decide</option>
+            <option value="even">About even</option>
+            <option value="audio">Mostly the audio</option>
+            <option value="still">Mostly the still asset</option>
+          </select>
+        </label>
         <label class="f" id="stillKindWrap">
           <span class="lab">Kind of still asset</span>
           <select id="stillKind">
             <option value="">Let the generator choose</option>
+            <option value="news article">News article</option>
+            <option value="web page">Web page</option>
+            <option value="blog post">Blog post</option>
+            <option value="review">Review</option>
+            <option value="email or letter">Email or letter</option>
+            <option value="leaflet">Leaflet or flyer</option>
+            <option value="news article">News article</option>
+            <option value="article or blog post">Article or blog post</option>
+            <option value="email or letter">Email or letter</option>
+            <option value="review">Review</option>
+            <option value="report">Report</option>
             <option value="table">Table</option>
             <option value="bar chart">Bar chart</option>
             <option value="line graph">Line graph</option>
@@ -411,6 +431,7 @@
     var audioShown = !one || $("kind").value === "moving";
     $("audioModeWrap").className = audioShown ? "f" : "f hide";
     $("voiceCountWrap").className = audioShown ? "f" : "f hide";
+    $("balanceWrap").className = (!one) ? "f" : "f hide";
     var photoWarn = $("photoWarn");
     if (photoWarn) {
       var isPhoto = /photograph|picture/.test($("stillKind").value);
@@ -769,6 +790,7 @@
             spec: spec, level: lvl, mode: mode, role: role, kind: kind,
             stillKind: stillKind, audioMode: $("audioMode").value,
             voiceCount: $("voiceCount").value,
+            balance: $("balance").value,
             listsLoaded: listsReadyFor(lvl),
             previousText: previousText, fixes: previousFixes
           })
