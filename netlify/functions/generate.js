@@ -162,6 +162,18 @@ function modeInstruction(mode) {
     " Write this kind and no other. If the task brief mentions this kind of audio as the source of the topic, that is the audio you are writing, not something that happens before or after it.";
 }
 
+// Still assets that are continuous prose. These carry the bulk of the words,
+// so the split flips: the audio becomes a short way in, and the reading does
+// the heavy lifting.
+const LONG_TEXT_STILLS = ["news article", "article or blog post", "email or letter", "review", "report"];
+
+function budgetSplit(stillKind) {
+  if (LONG_TEXT_STILLS.indexOf(stillKind) !== -1) {
+    return "Suggested share of the budget: roughly thirty percent audio, seventy percent still asset. The still asset is a piece of continuous writing, so it takes most of the words and the audio is a short way in to the topic, not a full treatment of it.";
+  }
+  return "Suggested share of the budget: roughly sixty percent script, forty percent still asset.";
+}
+
 function buildPrompt(b) {
   const L = LEVELS[b.level];
   if (!L) throw new Error("unknown level");
@@ -180,11 +192,26 @@ function buildPrompt(b) {
   if (modeLine) fixed.push(modeLine);
   const voiceLine = hasAudio ? voiceInstruction(b.voiceCount, b.audioMode) : null;
   if (voiceLine) fixed.push(voiceLine);
-  if (both) fixed.push("Suggested share of the budget: roughly sixty percent script, forty percent still asset.");
+  if (both) {
+    const BALANCE = {
+      "even": "Split the word budget about evenly between the audio and the still asset.",
+      "audio": "Give most of the word budget to the audio. The still asset is the shorter of the two.",
+      "still": "Give most of the word budget to the still asset. The audio is the shorter of the two."
+    };
+    fixed.push(BALANCE[b.balance] ||
+      "Divide the word budget between the two assets to suit the task rather than by a fixed share. Read the brief for words about length: if it calls one asset short, brief or quick, make it short, and if it says the other gives more detail or covers something in greater depth, give that one the larger share. Where the brief says nothing about length, lean towards the audio carrying somewhat more than the still asset.");
+  }
+  fixed.push("Where the brief describes an asset as short, quick, brief or an overview, that description governs. Write it at the shorter end of what the budget allows and give the spare words to the other asset. The budget is a ceiling on the pair, not a target each asset has to reach.");
   fixed.push("Invent the names of any company, product, service, place or publication you mention. Never use a real one.");
   if (b.listsLoaded) fixed.push("The author has loaded the frequency band lists for this level, and every word you write will be checked against them automatically.");
   if (b.stillKind && (both || b.kind === "still")) {
     fixed.push("Kind of still asset the author has asked for: " + b.stillKind + ". Use this form.");
+    if (/article|web page|blog|review|email|letter|leaflet/.test(b.stillKind)) {
+      fixed.push("Because the still asset is a " + b.stillKind + ", write it as continuous prose, not as rows or bullet points. Give it a headline, and where the form calls for it a source, a date or a sender, then several short paragraphs. It still carries the details, so the specific information the learner needs sits inside those paragraphs where it can be found and used.");
+    }
+    if (LONG_TEXT_STILLS.indexOf(b.stillKind) !== -1) {
+      fixed.push("Because the still asset is a " + b.stillKind + ", write it as continuous prose that a learner reads: a headline or subject line, then paragraphs. It carries the specific information the learner needs, worked into the writing rather than set out as a list of figures. Do not turn it into a table, a set of bullet points or a fact sheet.");
+    }
     if (/photograph|picture/.test(b.stillKind)) {
       fixed.push("Because the still asset is a photograph, it can only hold what a camera can capture. Write a brief for a single photograph and nothing else. It must not contain printed words, figures, tables, captions, data or statistics of any kind, and you must not describe it as a magazine spread, an article or a page with text beside it. The details the learner takes from it are visible things: what is there, how many, who is doing what, what the place is like.");
     }
