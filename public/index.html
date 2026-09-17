@@ -188,6 +188,7 @@
           <select id="mode">
             <option value="default">Usual for this level</option>
             <option value="one">One asset only</option>
+            <option value="two stills">Two still assets — a matched pair to compare</option>
           </select>
         </label>
         <label class="f hide" id="roleWrap">
@@ -195,6 +196,13 @@
           <select id="role">
             <option value="content">Content — the learner works from it</option>
             <option value="context">Context — it sets the scene</option>
+          </select>
+        </label>
+        <label class="f" id="relationWrap">
+          <span class="lab">How the assets relate</span>
+          <select id="relation">
+            <option value="divided">Divided — each carries different information</option>
+            <option value="same story">Same story — both cover it, one in more depth</option>
           </select>
         </label>
         <label class="f" id="audioModeWrap">
@@ -315,7 +323,7 @@
   };
 
   var $ = function (id) { return document.getElementById(id); };
-  var LAST = { stillKind: "", content: "", level: "", svg: "", parsed: {}, mode: "", role: "", kind: "", picTries: 0 };
+  var LAST = { stillKind: "", content: "", level: "", svg: "", parsed: {}, mode: "", role: "", kind: "", picTries: 0, relation: "divided" };
 
   var BANDS = { k1: null, k2: null, k3: null, k4: null, k5: null, house: null };
   var BAND_DEPTH = { k1: 1, k2: 2, k3: 3, k4: 4, k5: 5 };
@@ -377,7 +385,7 @@
       return { name: "The vocabulary check", state: "hand",
         detail: "Load the frequency band lists above and this check runs on its own. Checking by hand for now." };
     }
-    var text = [(p.STILL_ASSET_CONTENT || ""), (p.SCRIPT || "")].join("\n");
+    var text = [(p.STILL_ASSET_CONTENT || ""), (p.SECOND_STILL_CONTENT || ""), (p.SCRIPT || "")].join("\n");
     var lines = text.split(/\n/);
     var counted = 0, inside = 0, off = {};
     lines.forEach(function (line) {
@@ -410,11 +418,15 @@
   }
 
   function effectiveMode() {
-    return $("mode").value === "default" ? LEVELS[$("level").value].assets : "one";
+    var v = $("mode").value;
+    if (v === "two stills") return "two stills";
+    return v === "default" ? LEVELS[$("level").value].assets : "one";
   }
 
   function refresh() {
-    var lvl = $("level").value, L = LEVELS[lvl], one = effectiveMode() === "one";
+    var lvl = $("level").value, L = LEVELS[lvl];
+    var em = effectiveMode();
+    var one = em === "one", pair = em === "two stills";
     $("mode").options[0].text = L.assets === "both"
       ? "Both assets (usual for this level)"
       : "One asset (usual for this level)";
@@ -426,16 +438,17 @@
         ? "Content is carried by a still asset."
         : "Context is carried by audio.";
     }
-    var stillShown = !one || $("kind").value === "still";
+    var stillShown = pair || !one || $("kind").value === "still";
     $("stillKindWrap").className = stillShown ? "f" : "f hide";
-    var audioShown = !one || $("kind").value === "moving";
+    $("relationWrap").className = (one || pair) ? "f hide" : "f";
+    var audioShown = !pair && (!one || $("kind").value === "moving");
     $("audioModeWrap").className = audioShown ? "f" : "f hide";
     $("voiceCountWrap").className = audioShown ? "f" : "f hide";
-    $("balanceWrap").className = (!one) ? "f" : "f hide";
+    $("balanceWrap").className = (!one && !pair) ? "f" : "f hide";
     var photoWarn = $("photoWarn");
     if (photoWarn) {
       var isPhoto = /photograph|picture/.test($("stillKind").value);
-      if (isPhoto && !one) {
+      if (isPhoto && !one && !pair) {
         photoWarn.className = "caution";
         photoWarn.innerHTML = "<strong>A photograph cannot carry printed details.</strong>" +
           "In a two-asset task the still asset holds the specific information the learner uses — times, prices, quantities, conditions. A photograph can only show what a camera sees. Use it where the details are visible things to count or describe; choose a table, chart or notice where the learner needs figures.";
@@ -444,7 +457,11 @@
       }
     }
     var c = $("caution");
-    if (one && L.assets === "both") {
+    if (pair && L.assets === "both") {
+      c.className = "caution";
+      c.innerHTML = "<strong>Two still assets departs from the guidelines at " + lvl + ".</strong>" +
+        "The guidelines pair a still asset with a non-static one from B1 upward, so that the learner works across two channels. Two stills removes the listening channel, and nothing sets the scene — the situation has to come from the task itself or the bot's opening turn. The generator will still make it: this is your call.";
+    } else if (one && L.assets === "both") {
       c.className = "caution";
       c.innerHTML = "<strong>One asset may not be the best fit at " + lvl + ".</strong>" +
         "At this level the two channels are what make the learner work across two sources. The generator will still make it — this is your call.";
@@ -469,8 +486,10 @@
   }
 
   function runChecks(p, lvl, mode, role, kind) {
-    var L = LEVELS[lvl], both = mode === "both", out = [];
-    var needed = both
+    var L = LEVELS[lvl], both = mode === "both", pair = mode === "two stills", out = [];
+    var needed = pair
+      ? ["STILL_ASSET_CONTENT", "STILL_ASSET_DESCRIPTION", "SECOND_STILL_CONTENT", "SECOND_STILL_DESCRIPTION", "BOT_TALLY"]
+      : both
       ? ["STILL_ASSET_CONTENT", "STILL_ASSET_DESCRIPTION", "SCRIPT", "VOICE_NOTES", "BOT_TALLY"]
       : (kind === "still"
           ? ["STILL_ASSET_CONTENT", "STILL_ASSET_DESCRIPTION", "BOT_TALLY"]
@@ -481,13 +500,17 @@
       fix: missing.length ? "You left out these sections: " + missing.join(", ") + ". Write every section, each between its BEGIN and END lines." : null,
       advice: missing.length ? "The draft came back with sections missing. Writing it again usually fixes this." : null });
 
-    var still = words(p.STILL_ASSET_CONTENT), script = words(p.SCRIPT), total = still + script;
+    var still = words(p.STILL_ASSET_CONTENT), script = words(p.SCRIPT);
+    var second = words(p.SECOND_STILL_CONTENT);
+    var total = pair ? still + second : still + script;
     var inBudget = total >= L.low && total <= L.high;
     var over = total > L.high;
     var gap = over ? total - L.high : L.low - total;
     out.push({ name: "The word budget check",
       state: inBudget ? "pass" : "flag",
-      detail: total + " words counted (" + still + " still asset, " + script + " script). The budget is " +
+      detail: total + " words counted (" + (pair
+        ? still + " first asset, " + second + " second asset"
+        : still + " still asset, " + script + " script") + "). The budget is " +
         L.low + " to " + L.high + (inBudget ? "." : over ? ". Too long by about " + gap + " words." : ". Too short by about " + gap + " words."),
       fix: inBudget ? null : (over
         ? "Your draft ran to " + total + " words, which is about " + gap + " words too long. Cut it back to between " + L.low + " and " + L.high + " words in total, without losing any information the learner needs."
@@ -496,16 +519,44 @@
         ? "The draft is longer than the level allows. Narrowing the brief usually helps — fewer people, fewer options, one situation rather than several."
         : "A short brief gives the generator little to work with, so it writes short. Add a sentence or two about the situation, who is involved, and what the learner has to decide or compare.") });
 
+    if (pair && p.SECOND_STILL_DESCRIPTION) {
+      var len2 = p.SECOND_STILL_DESCRIPTION.length;
+      var okLen2 = len2 >= 200 && len2 <= 250;
+      out.push({ name: "The second description length check",
+        state: okLen2 ? "pass" : "flag",
+        detail: len2 + " characters. It should be between 200 and 250.",
+        fix: okLen2 ? null : "The description of the second asset came to " + len2 + " characters. Rewrite it to between 200 and 250 characters.",
+        advice: okLen2 ? null : "The second description is " + (len2 > 250 ? "longer" : "shorter") + " than the guidelines allow." });
+    }
     if (p.STILL_ASSET_DESCRIPTION) {
       var len = p.STILL_ASSET_DESCRIPTION.length;
       var okLen = len >= 200 && len <= 250;
-      out.push({ name: "The description length check",
+      out.push({ name: pair ? "The first description length check" : "The description length check",
         state: okLen ? "pass" : "flag",
         detail: len + " characters. It should be between 200 and 250.",
         fix: okLen ? null : "Your description for learners who cannot see the asset came to " + len + " characters. Rewrite it to between 200 and 250 characters.",
         advice: okLen ? null : "The description is " + (len > 250 ? "longer" : "shorter") + " than the guidelines allow. Writing it again usually fixes this on its own." });
     }
 
+    if (pair) {
+      var bigger = Math.max(still, second), smaller = Math.min(still, second);
+      var balanced = smaller > 0 && (bigger - smaller) / bigger <= 0.3;
+      out.push({ name: "The matched pair check",
+        state: balanced ? "pass" : "flag",
+        detail: balanced
+          ? "The two assets are close in length (" + still + " and " + second + " words), so neither gives the learner more to work with than the other."
+          : "The two assets are " + still + " and " + second + " words. One is noticeably fuller than the other, which makes them hard to compare fairly.",
+        fix: balanced ? null : "Your two assets came to " + still + " and " + second + " words. They are a matched pair, so make them close in length: the same categories of information in the same order, with only the values differing.",
+        advice: balanced ? null : "One option carries more than the other, so the comparison is lopsided. Writing it again usually evens them up." });
+
+      var tally = p.BOT_TALLY || "";
+      var hasTrade = /the trade-off:\s*\S/i.test(tally);
+      out.push({ name: "The trade-off check",
+        state: hasTrade ? "pass" : "hand",
+        detail: hasTrade
+          ? "The generator has stated what each option is better at. Read it and check that neither option wins outright — if one is better on every count, there is nothing for the learner to weigh."
+          : "No trade-off stated. Check by hand that neither option is plainly better than the other." });
+    }
     out.push(vocabularyCheck(p, lvl));
 
     if (p.SCRIPT && L.paceLow) {
@@ -517,7 +568,7 @@
         advice: secs <= 120 ? null : "The audio would run over two minutes. Cutting a speaker or a topic from the brief brings it down." });
     }
 
-    if (both && p.SCRIPT) {
+    if (both && !pair && p.SCRIPT && LAST.relation !== "same story") {
       var leaks = p.SCRIPT.match(/[£$€]\s?\d+|\b\d+([.:,]\d+)?\b/g) || [];
       out.push({ name: "The detail leak check", state: leaks.length ? "flag" : "pass",
         detail: leaks.length
@@ -572,6 +623,8 @@
     var p = {};
     for (var k in LAST.parsed) { p[k] = LAST.parsed[k]; }
     if ($("editStill")) p.STILL_ASSET_CONTENT = $("editStill").value;
+    if ($("editStill2")) p.SECOND_STILL_CONTENT = $("editStill2").value;
+    if ($("editDesc2")) p.SECOND_STILL_DESCRIPTION = $("editDesc2").value;
     if ($("editDesc"))  p.STILL_ASSET_DESCRIPTION = $("editDesc").value;
     if ($("editScript")) p.SCRIPT = $("editScript").value;
     return p;
@@ -585,6 +638,8 @@
       n.textContent = "Edited. Press Check again to see whether it still passes.";
     };
     if ($("editStill")) $("editStill").addEventListener("input", function () { mark("noteStill"); });
+    if ($("editStill2")) $("editStill2").addEventListener("input", function () { mark("noteStill2"); });
+    if ($("editDesc2")) $("editDesc2").addEventListener("input", function () { mark("noteStill2"); });
     if ($("editScript")) $("editScript").addEventListener("input", function () { mark("noteScript"); });
     if ($("editDesc")) $("editDesc").addEventListener("input", function () { mark("noteStill"); });
 
@@ -607,10 +662,33 @@
     }
   }
 
+  function stillPane(title, roleLine, contentId, noteId, descId, content, desc, drawId, areaId, picId, picAreaId) {
+    picAreaId = picAreaId || areaId;
+    var html = '<div class="channel"><h3>' + esc(title) + '</h3><div class="role">' + esc(roleLine) + "</div>" +
+      '<p class="sub">What it says — you can edit this before drawing</p>' +
+      '<textarea class="edit" id="' + contentId + '">' + esc(content || "") + '</textarea>' +
+      '<p class="editnote" id="' + noteId + '">The drawing uses whatever is in this box.</p>';
+    if (desc) {
+      html += '<p class="sub">Description for learners who cannot see it — you can edit this</p>' +
+        '<textarea class="edit short" id="' + descId + '">' + esc(desc) + '</textarea>';
+    }
+    html += '<p class="sub">The asset itself</p>';
+    if (LAST.stillKind === "photograph") {
+      html += '<p class="drawnote">The words above are the brief. The photograph is made from it by a separate service, so it will not match the brief exactly — always look at it before you use it.</p>' +
+        '<button class="draw" id="' + picId + '">Make this photograph</button><div id="' + picAreaId + '"></div>';
+    } else if (LAST.stillKind === "picture") {
+      html += '<p class="drawnote">The words above are the brief. Draw it below as a flat illustration, or copy the brief into a photo tool if the task needs a real photograph.</p>' +
+        '<button class="draw" id="' + drawId + '">Draw this scene</button><div id="' + areaId + '"></div>';
+    } else {
+      html += '<button class="draw" id="' + drawId + '">Draw this asset</button><div id="' + areaId + '"></div>';
+    }
+    return html + "</div>";
+  }
+
   function render(res, mode, role, kind) {
-    var p = res.parsed, both = mode === "both";
-    var showStill = both || kind === "still";
-    var showScript = both || kind === "moving";
+    var p = res.parsed, both = mode === "both", pair = mode === "two stills";
+    var showStill = !pair && (both || kind === "still");
+    var showScript = !pair && (both || kind === "moving");
     var roleLabel = role === "content" ? "content — the learner works from it" : "context — it sets the scene";
 
     var html = '<div class="attempts">' +
@@ -619,6 +697,16 @@
         : "Written on the first attempt.") + "</div>";
 
     html += '<div class="channels">';
+    if (pair) {
+      html += stillPane("The first asset", "one of a matched pair — the learner compares both",
+        "editStill", "noteStill", "editDesc",
+        p.STILL_ASSET_CONTENT, p.STILL_ASSET_DESCRIPTION,
+        "drawBtn", "drawArea", "picBtn", "picArea");
+      html += stillPane("The second asset", "one of a matched pair — the learner compares both",
+        "editStill2", "noteStill2", "editDesc2",
+        p.SECOND_STILL_CONTENT, p.SECOND_STILL_DESCRIPTION,
+        "drawBtn2", "drawArea2", "picBtn2", "picArea2");
+    }
     if (showScript) {
       html += '<div class="channel"><h3>The audio</h3><div class="role">' +
         (both ? "first asset — carries the context" : roleLabel) + "</div>" +
@@ -668,12 +756,13 @@
     $("out").innerHTML = html;
   }
 
-  function wirePicture() {
-    var btn = $("picBtn");
+  function wirePicture(btnId, areaId, sourceId) {
+    btnId = btnId || "picBtn"; areaId = areaId || "picArea"; sourceId = sourceId || "editStill";
+    var btn = $(btnId);
     if (!btn) return;
     var LIMIT = 3;
     btn.addEventListener("click", async function () {
-      var area = $("picArea");
+      var area = $(areaId);
       if (LAST.picTries >= LIMIT) return;
       btn.disabled = true;
       btn.textContent = "Making the photograph…";
@@ -682,7 +771,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            brief: $("editStill") ? $("editStill").value : LAST.content,
+            brief: $(sourceId) ? $(sourceId).value : LAST.content,
             shape: "square"
           })
         });
@@ -712,11 +801,13 @@
     });
   }
 
-  function wireDraw() {
-    var btn = $("drawBtn");
+  function wireDraw(btnId, areaId, sourceId, codeId) {
+    btnId = btnId || "drawBtn"; areaId = areaId || "drawArea";
+    sourceId = sourceId || "editStill"; codeId = codeId || "codeBtn";
+    var btn = $(btnId);
     if (!btn) return;
     btn.addEventListener("click", async function () {
-      var area = $("drawArea");
+      var area = $(areaId);
       btn.disabled = true;
       btn.textContent = "Drawing…";
       try {
@@ -724,7 +815,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            content: $("editStill") ? $("editStill").value : LAST.content,
+            content: $(sourceId) ? $(sourceId).value : LAST.content,
             stillKind: LAST.stillKind
           })
         });
@@ -738,11 +829,11 @@
         }
         LAST.svg = svg;
         area.innerHTML = '<div class="canvas">' + svg + '</div>' +
-          '<button class="code" id="codeBtn">Show the drawing code</button>' +
-          '<pre class="blockout hide" id="codeBox"></pre>';
-        $("codeBox").textContent = svg;
-        $("codeBtn").addEventListener("click", function () {
-          var box = $("codeBox");
+          '<button class="code" id="' + codeId + '">Show the drawing code</button>' +
+          '<pre class="blockout hide" id="' + codeId + 'Box"></pre>';
+        $(codeId + "Box").textContent = svg;
+        $(codeId).addEventListener("click", function () {
+          var box = $(codeId + "Box");
           var open = box.className.indexOf("hide") === -1;
           box.className = open ? "blockout hide" : "blockout";
           this.textContent = open ? "Show the drawing code" : "Hide the drawing code";
@@ -775,6 +866,7 @@
     var stillKind = $("stillKind").value;
     LAST.stillKind = stillKind;
     LAST.picTries = 0;
+    LAST.relation = $("relation").value;
     LAST.level = lvl;
     LAST.svg = "";
     var last = null;
@@ -790,6 +882,7 @@
             spec: spec, level: lvl, mode: mode, role: role, kind: kind,
             stillKind: stillKind, audioMode: $("audioMode").value,
             voiceCount: $("voiceCount").value,
+            relation: $("relation").value,
             balance: $("balance").value,
             listsLoaded: listsReadyFor(lvl),
             previousText: previousText, fixes: previousFixes
@@ -818,6 +911,8 @@
       render(last, mode, role, kind);
       wireDraw();
       wirePicture();
+      wireDraw("drawBtn2", "drawArea2", "editStill2", "codeBtn2");
+      wirePicture("picBtn2", "picArea2", "editStill2");
       wireEdits();
       if ($("again")) { $("again").addEventListener("click", generate); }
     } catch (e) {
