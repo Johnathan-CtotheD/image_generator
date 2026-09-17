@@ -81,6 +81,50 @@ const SINGLE_CONTEXT = [
   "The asset must stand on its own, within the word budget."
 ].join("\n");
 
+const TWO_STILLS = [
+  "You are producing the input material for one learner speaking task. This task has two assets and both of them are still: two things the learner looks at, side by side. There is no audio.",
+  "",
+  "The learner's job is to compare them and then choose, recommend or decide. So the two assets are not divided between context and detail, as they would be with audio. They are two of the same kind of thing, and the learner reads both.",
+  "",
+  "What makes a pair work:",
+  "Both assets must be the same form. Two adverts, two menus, two notices, two timetables, two charts, two photographs. Not one of each.",
+  "Both must cover the same categories of information, in the same order, at the same level of detail. If one gives opening times, price and location, so does the other. If one has four rows, so does the other.",
+  "The values must differ, and differ in ways that matter. One is cheaper but further away; one opens later but costs more. The learner needs something real to weigh.",
+  "Neither option may be plainly better than the other on every count, or there is nothing to discuss. Build in a genuine trade-off, so that a reasonable learner could choose either and justify it.",
+  "Give them different names, so the learner can refer to each one without confusion.",
+  "",
+  "Because there is no audio, neither asset sets the scene. The situation comes from the task the learner is given, not from the material. Do not write an introduction, a framing paragraph or a note explaining the choice: write the two artefacts as they would really appear, and nothing else.",
+  "",
+  "Neither asset does the comparing. Neither mentions the other, neither says which is better, and neither recommends. That judgement is the learner's task.",
+  "",
+  "Both assets are content assets, which means the learner has to put what they see into words. Everything in them must be nameable with the language of the level: everyday categories, ordinary things, no specialist terms. This applies to both equally."
+].join("\n");
+
+const SEC_TWO_STILLS = [
+  "===BEGIN STILL_ASSET_CONTENT===",
+  "(The full text of the FIRST still asset: the actual words of the advert, menu, notice, timetable or table, with the layout shown by simple headings, rows and labels. If it is a picture, write a precise brief for it instead. Start with the name of this option.)",
+  "===END STILL_ASSET_CONTENT===",
+  "",
+  "===BEGIN STILL_ASSET_DESCRIPTION===",
+  "(A description of the first asset for a learner who cannot see it. Between two hundred and two hundred and fifty characters.)",
+  "===END STILL_ASSET_DESCRIPTION===",
+  "",
+  "===BEGIN SECOND_STILL_CONTENT===",
+  "(The full text of the SECOND still asset, in exactly the same form as the first, covering the same categories in the same order, with different values. Start with the name of this option.)",
+  "===END SECOND_STILL_CONTENT===",
+  "",
+  "===BEGIN SECOND_STILL_DESCRIPTION===",
+  "(A description of the second asset for a learner who cannot see it. Between two hundred and two hundred and fifty characters.)",
+  "===END SECOND_STILL_DESCRIPTION===",
+  "",
+  "===BEGIN BOT_TALLY===",
+  "first asset word count: (number)",
+  "second asset word count: (number)",
+  "the two options: (the name of each one)",
+  "the trade-off: (one line: what each option is better at, so that neither wins outright)",
+  "===END BOT_TALLY==="
+].join("\n");
+
 const SEC_BOTH = [
   "===BEGIN STILL_ASSET_CONTENT===",
   "(The full text of the still asset: the actual words of the table, notice, timetable, advert or message thread, with the layout shown by simple headings, rows and labels. If it is a picture, write a precise brief for it instead.)",
@@ -198,24 +242,32 @@ function budgetSplit(stillKind) {
 function buildPrompt(b) {
   const L = LEVELS[b.level];
   if (!L) throw new Error("unknown level");
+  const twoStills = b.mode === "two stills";
   const both = b.mode === "both";
   const sameStory = both && b.relation === "same story";
-  const rule = both
-    ? (sameStory ? SAME_STORY : PARTITION)
-    : (b.role === "content" ? SINGLE_CONTENT : SINGLE_CONTEXT);
-  const sections = both ? SEC_BOTH : (b.kind === "still" ? SEC_STILL : SEC_SCRIPT);
+  const rule = twoStills
+    ? TWO_STILLS
+    : both
+      ? (sameStory ? SAME_STORY : PARTITION)
+      : (b.role === "content" ? SINGLE_CONTENT : SINGLE_CONTEXT);
+  const sections = twoStills
+    ? SEC_TWO_STILLS
+    : both ? SEC_BOTH : (b.kind === "still" ? SEC_STILL : SEC_SCRIPT);
 
   const fixed = [
     "Level: " + b.level + ".",
     "Vocabulary: " + L.vocab + ".",
     "Word budget: " + L.budgetWords + " in total across everything the learner reads and hears."
   ];
-  if (L.pace) fixed.push("Speaking speed for any audio: " + L.pace + ".");
-  const hasAudio = both || b.kind === "moving";
+  if (L.pace && !twoStills) fixed.push("Speaking speed for any audio: " + L.pace + ".");
+  const hasAudio = !twoStills && (both || b.kind === "moving");
   const modeLine = hasAudio ? modeInstruction(b.audioMode) : null;
   if (modeLine) fixed.push(modeLine);
   const voiceLine = hasAudio ? voiceInstruction(b.voiceCount, b.audioMode) : null;
   if (voiceLine) fixed.push(voiceLine);
+  if (twoStills) {
+    fixed.push("Split the word budget about evenly between the two still assets. They are a matched pair, so one should not be noticeably longer than the other.");
+  }
   if (both) {
     const BALANCE = {
       "even": "Split the word budget about evenly between the audio and the still asset.",
@@ -228,8 +280,9 @@ function buildPrompt(b) {
   fixed.push("Where the brief describes an asset as short, quick, brief or an overview, that description governs. Write it at the shorter end of what the budget allows and give the spare words to the other asset. The budget is a ceiling on the pair, not a target each asset has to reach.");
   fixed.push("Invent the names of any company, product, service, place or publication you mention. Never use a real one.");
   if (b.listsLoaded) fixed.push("The author has loaded the frequency band lists for this level, and every word you write will be checked against them automatically.");
-  if (b.stillKind && (both || b.kind === "still")) {
-    fixed.push("Kind of still asset the author has asked for: " + b.stillKind + ". Use this form.");
+  if (b.stillKind && (both || twoStills || b.kind === "still")) {
+    fixed.push("Kind of still asset the author has asked for: " + b.stillKind + "." +
+      (twoStills ? " Use this form for both assets." : " Use this form."));
     if (/article|web page|blog|review|email|letter|leaflet/.test(b.stillKind)) {
       fixed.push("Because the still asset is a " + b.stillKind + ", write it as continuous prose, not as rows or bullet points. Give it a headline, and where the form calls for it a source, a date or a sender, then several short paragraphs. It still carries the details, so the specific information the learner needs sits inside those paragraphs where it can be found and used.");
     }
